@@ -11,7 +11,7 @@ from dipps import predict_emotion_from_edf_single, CHANNEL_REGISTRY, detect_devi
 app = Flask(__name__)
 
 # ===== LOAD MODEL BASED ON COMMAND LINE ARGUMENT =====
-version = sys.argv[1] if len(sys.argv) > 1 else 'version_1_trained'
+version = os.environ.get('MODEL_VERSION', 'version_1_trained')  
 print(f" Loading model version: {version}")
 
 model = joblib.load(f'model_{version}.pkl')
@@ -55,3 +55,4 @@ def health():
 # ===== THIS LINE ACTUALLY STARTS THE SERVER =====
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+    
