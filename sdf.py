@@ -98,3 +98,4 @@ if __name__ == '__main__':
     print(f" Attempting to start server on port: {port}")
     print(f" PORT environment variable: '{os.environ.get('PORT', 'NOT SET')}'")
     app.run(host='0.0.0.0', port=port, debug=False)
+    
