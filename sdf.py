@@ -4,6 +4,8 @@ import numpy as np
 import os
 import tempfile
 import glob
+import traceback
+import sys
 
 # Import your EEG functions
 from dipps import predict_emotion_from_edf_single, CHANNEL_REGISTRY, detect_device_model, bins_to_waves
@@ -51,27 +53,35 @@ except Exception as e:
 # ===== ROUTES =====
 @app.route('/predict', methods=['POST'])
 def predict():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    file = request.files['file']
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmp:
-        file.save(tmp.name)
-        temp_path = tmp.name
-    
     try:
-        emotion = predict_emotion_from_edf_single(
-            temp_path,
-            model=model,
-            le=le,
-            male_baseline=male_baseline,
-            female_baseline=female_baseline
-        )
-        os.unlink(temp_path)
-        return jsonify({'emotion': emotion})
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmp:
+            file.save(tmp.name)
+            temp_path = tmp.name
+        
+        try:
+            emotion = predict_emotion_from_edf_single(
+                temp_path,
+                model=model,
+                le=le,
+                male_baseline=male_baseline,
+                female_baseline=female_baseline
+            )
+            os.unlink(temp_path)
+            return jsonify({'emotion': emotion})
+        except Exception as e:
+            os.unlink(temp_path)
+            # Print full traceback to Render logs
+            print(" Error in prediction:")
+            traceback.print_exc(file=sys.stdout)
+            return jsonify({'error': str(e)}), 500
     except Exception as e:
-        os.unlink(temp_path)
+        print(" Outer error:")
+        traceback.print_exc(file=sys.stdout)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
