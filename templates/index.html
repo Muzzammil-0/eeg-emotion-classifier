@@ -198,6 +198,43 @@
             font-size: 0.9rem;
         }
 
+        .callout-box {
+            background: #fefcbf;
+            border-radius: 16px;
+            padding: 25px;
+            margin: 40px 0 20px;
+            border-left: 4px solid #d69e2e;
+            text-align: center;
+        }
+
+        .callout-box h3 {
+            color: #975a16;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .callout-box p {
+            color: #744210;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .github-link {
+            display: inline-block;
+            background: #24292e;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+
+        .github-link:hover {
+            background: #1a1e22;
+        }
+
         .footer {
             text-align: center;
             margin-top: 40px;
@@ -234,14 +271,15 @@
                 <h3>📊 89.7% Accuracy</h3>
                 <p>Optimized XGBoost ensemble with [1,2,5] weights</p>
             </div>
-            <div class="feature-card">
-                <h3>🔧 Version Control</h3>
-                <p>Track models, data, and baselines across experiments</p>
-            </div>
-            <div class="feature-card">
-                <h3>🚀 Production Ready</h3>
-                <p>Flask API + Web interface + Render deployment</p>
-            </div>
+        </div>
+
+        <div class="callout-box">
+            <h3>💖 Open for Improvement & Doctor Validation</h3>
+            <p>This model is trained on limited data (2 subjects). To make it truly generalizable across different people, we need more EEG data with known emotional states.</p>
+            <p>If you have EDF files from clinical settings or research studies, please share them! Your contribution will help:</p>
+            <p>✅ Train the model on more subjects<br>✅ Improve cross-subject validation<br>✅ Make emotion detection more accurate for everyone</p>
+            <p style="font-weight: 600; margin-top: 15px;">Anyone interested can send me EDF files via GitHub to help improve the model 💖</p>
+            <a href="https://github.com/Muzzammil-0/eeg-emotion-classifier" class="github-link">📤 Contribute on GitHub</a>
         </div>
         
         {% if error %}
@@ -274,6 +312,7 @@
         <div class="footer">
             <p>Built with ❤️ by Muzzammil-0 | <a href="https://github.com/Muzzammil-0/eeg-emotion-classifier" style="color: #667eea; text-decoration: none;">GitHub</a></p>
             <p style="margin-top: 10px;">📡 API available at <code style="background: #edf2f7; padding: 2px 6px; border-radius: 4px;">/predict</code></p>
+            <p style="margin-top: 15px;">🙏 Help improve this model by sharing EDF files on GitHub</p>
         </div>
     </div>
 
