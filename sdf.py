@@ -33,9 +33,12 @@ def home():
     """Home page with upload form"""
     return render_template('index.html')
 
+import time
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload and show result"""
+    start_total = time.time()
+    
     if 'file' not in request.files:
         return render_template('index.html', error='No file uploaded')
     
@@ -44,13 +47,17 @@ def upload_file():
     if file.filename == '':
         return render_template('index.html', error='No file selected')
     
-    # Save uploaded file temporarily
+    # Time file save
+    t1 = time.time()
     with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmp:
         file.save(tmp.name)
         temp_path = tmp.name
+    t2 = time.time()
+    print(f"time File save: {t2-t1:.2f}s")
     
     try:
-        # Get prediction
+        # Time prediction
+        t3 = time.time()
         emotion = predict_emotion_from_edf_single(
             temp_path,
             model=model,
@@ -58,9 +65,14 @@ def upload_file():
             male_baseline=male_baseline,
             female_baseline=female_baseline
         )
+        t4 = time.time()
+        print(f"time Prediction: {t4-t3:.2f}s")
+        
         os.unlink(temp_path)
         
-        # Show result page
+        t5 = time.time()
+        print(f"time Total: {t5-start_total:.2f}s")
+        
         return render_template('result.html', emotion=emotion, filename=file.filename)
     
     except Exception as e:
@@ -69,33 +81,7 @@ def upload_file():
         print(f" Error: {error_msg}")
         traceback.print_exc(file=sys.stdout)
         return render_template('index.html', error=f'Prediction failed: {error_msg}')
-
-# ===== API ROUTES (keep these for programmatic access) =====
-@app.route('/predict', methods=['POST'])
-def predict():
-    """API endpoint for programmatic access"""
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-        
-        file = request.files['file']
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmp:
-            file.save(tmp.name)
-            temp_path = tmp.name
-        
-        emotion = predict_emotion_from_edf_single(
-            temp_path,
-            model=model,
-            le=le,
-            male_baseline=male_baseline,
-            female_baseline=female_baseline
-        )
-        os.unlink(temp_path)
-        return jsonify({'emotion': emotion})
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -108,4 +94,3 @@ if __name__ == '__main__':
     print(f" Web interface: http://127.0.0.1:{port}")
     print(f" API endpoint: http://127.0.0.1:{port}/predict")
     app.run(host='0.0.0.0', port=port, debug=False)
-    
