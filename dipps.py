@@ -14,19 +14,28 @@ import mne
 from scipy import signal
 
 
+from collections import OrderedDict
 
-_CHANNEL_CACHE = {}
+
+_CHANNEL_CACHE = OrderedDict()
+_MAX_CACHE_SIZE = 5  # Keep only last 5 files
 
 def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_baseline, target_fs=150):
-    # Check cache first (if same file processed recently)
+    # Check cache first
     if edf_path in _CHANNEL_CACHE:
         print("⚡ Using cached channel mapping")
         selected = _CHANNEL_CACHE[edf_path]
+        # Move to end (most recently used)
+        _CHANNEL_CACHE.move_to_end(edf_path)
     else:
-        # existing channel mapping code ...
+        # ... your existing channel mapping code ...
+        
+        # Cache the result
         _CHANNEL_CACHE[edf_path] = selected
+        # Limit cache size
+        if len(_CHANNEL_CACHE) > _MAX_CACHE_SIZE:
+            _CHANNEL_CACHE.popitem(last=False)
     
-
 
 
 # ==============================================
