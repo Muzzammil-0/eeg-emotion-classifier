@@ -13,8 +13,24 @@ from xgboost import XGBClassifier
 import mne
 from scipy import signal
 
+
+
+_CHANNEL_CACHE = {}
+
+def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_baseline, target_fs=150):
+    # Check cache first (if same file processed recently)
+    if edf_path in _CHANNEL_CACHE:
+        print("⚡ Using cached channel mapping")
+        selected = _CHANNEL_CACHE[edf_path]
+    else:
+        # existing channel mapping code ...
+        _CHANNEL_CACHE[edf_path] = selected
+    
+
+
+
 # ==============================================
-# FUNCTION DEFINITIONS (ALL TOP-LEVEL)
+# FUNCTION DEFINITIONS FOR EEG PROCESSING AND FEATURE EXTRACTION
 # ==============================================
 
 def bins_to_waves(df_bins):
