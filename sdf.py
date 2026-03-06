@@ -13,7 +13,7 @@ from dipps import predict_emotion_from_edf_single, CHANNEL_REGISTRY, detect_devi
 app = Flask(__name__)
 
 # ===== LOAD MODEL =====
-version = os.environ.get('MODEL_VERSION', 'version_1_trained')
+version = os.environ.get('MODEL_VERSION', 'version_0') # Default to 'version_1_trained'
 print(f" Loading model version: '{version}'")
 
 try:

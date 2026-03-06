@@ -116,7 +116,7 @@
             margin-top: 15px;
             color: #4a5568;
             font-size: 1rem;
-            font-weight: 500;
+            font-weight: 500; 
         }
 
         .submit-btn {
@@ -275,7 +275,7 @@
             <p>✓ Works with any EEG device (Muse, Natus, EGI, BioSemi, g.tec, Neuroscan, Nihon Kohden, Brain Products)</p>
             <p>✓ Supports raw .edf files directly from clinical machines</p>
             <p>✓ 21 wave features across Delta, Theta, Alpha, Beta, Gamma bands</p>
-            <p class="file-limit-note">📁 Maximum file size: <strong>10 MB</strong> (larger files will be rejected to prevent server crashes)</p>
+            <p class="file-limit-note">📁 Local Docker version: Maximum file size <strong>500 MB</strong></p>
         </div>
 
         <div class="features">
@@ -305,7 +305,7 @@
                 <div class="upload-icon">📤</div>
                 <p style="margin-bottom: 15px; color: #4a5568;">Drag & drop your EDF file here</p>
                 <p style="margin-bottom: 5px; color: #a0aec0;">or</p>
-                <p style="margin-bottom: 20px; color: #f56565; font-size: 0.9rem;">(Max 10 MB)</p>
+                <p style="margin-bottom: 20px; color: #f56565; font-size: 0.9rem;">(Local Docker: Max 500 MB)</p>
                 <label for="fileInput" class="file-label">Choose File</label>
                 <input type="file" id="fileInput" name="file" accept=".edf" class="file-input" required>
                 <div id="fileName" class="file-name"></div>
@@ -326,7 +326,7 @@
             <p>Built with ❤️ by Muzzammil-0 | <a href="https://github.com/Muzzammil-0/eeg-emotion-classifier" style="color: #667eea; text-decoration: none;">GitHub</a></p>
             <p style="margin-top: 10px;">📡 API available at <code style="background: #edf2f7; padding: 2px 6px; border-radius: 4px;">/predict</code></p>
             <p style="margin-top: 15px;">🙏 Help improve this model by sharing EDF files on GitHub</p>
-            <p style="margin-top: 10px; font-size: 0.8rem; color: #a0aec0;">⚠️ Free tier limitation: Files must be under 10MB</p>
+            <p style="margin-top: 10px; font-size: 0.8rem; color: #a0aec0;">⚠️ Local Docker version: 500MB file limit</p>
         </div>
     </div>
 
@@ -376,12 +376,16 @@
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                fileName.textContent = `📄 ${file.name} (${fileSizeMB} MB)`;
                 
-                // Warn if file is too large
-                if (file.size > 10 * 1024 * 1024) {
-                    fileName.innerHTML += '<br><span style="color: #f56565; font-size: 0.9rem;">⚠️ File exceeds 10MB limit and will be rejected</span>';
+                // Always show filename and size
+                let displayText = `${file.name} (${fileSizeMB} MB)`;
+                
+                // Add warning if too large
+                if (file.size > 500 * 1024 * 1024) {
+                    displayText += '<br><span style="color: #f56565; font-size: 0.9rem;">⚠️ File exceeds 500MB limit and will be rejected</span>';
                 }
+                
+                fileName.innerHTML = displayText;
             } else {
                 fileName.textContent = '';
             }
@@ -395,13 +399,8 @@
                 return;
             }
             
-            // Check file size before submitting
-            const file = fileInput.files[0];
-            if (file.size > 10 * 1024 * 1024) {
-                e.preventDefault();
-                alert('File too large! Maximum size is 10MB.');
-                return;
-            }
+            // No file size check – Docker version accepts any size
+            // Warning only, not blocking
             
             submitBtn.disabled = true;
             loading.style.display = 'block';
