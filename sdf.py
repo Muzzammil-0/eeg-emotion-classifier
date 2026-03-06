@@ -13,7 +13,7 @@ from dipps import predict_emotion_from_edf_single, CHANNEL_REGISTRY, detect_devi
 app = Flask(__name__)
 
 # ===== LOAD MODEL =====
-version = os.environ.get('MODEL_VERSION', 'version_0') # Default to 'version_1_trained'
+version = os.environ.get('MODEL_VERSION', 'igt_p05_trained') # Default to "version_0"
 print(f" Loading model version: '{version}'")
 
 try:
@@ -94,3 +94,4 @@ if __name__ == '__main__':
     print(f" Web interface: http://127.0.0.1:{port}")
     print(f" API endpoint: http://127.0.0.1:{port}/predict")
     app.run(host='0.0.0.0', port=port, debug=False)
+version
