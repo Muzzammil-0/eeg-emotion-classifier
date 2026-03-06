@@ -62,11 +62,3 @@ def add_patient_to_training(edf_path, observed_emotion, base_version='version_0'
     print(f"   python retrain_model.py {new_version}")
     
     return new_version
-
-if __name__ == "__main__":
- 
-    add_patient_to_training(
-        r'C:\Users\hp\Downloads\ds007338\ds007338\sub-EP10\ses-01\eeg\sub-EP10_ses-01_task-dots_run-01_eeg.edf',
-        "NEGATIVE",
-        base_version='version_0'
-    )
