@@ -13,7 +13,39 @@ from dipps import predict_emotion_from_edf_single, CHANNEL_REGISTRY, detect_devi
 app = Flask(__name__)
 
 # ===== LOAD MODEL =====
-version = os.environ.get('MODEL_VERSION', 'version_0') # Default to "version_0"
+#version = os.environ.get('MODEL_VERSION', 'version_0') # Default to "version_0"
+import re
+import glob
+
+def get_latest_trained_version():
+    """Auto-detect the highest trained version available."""
+    # Prefer *_trained versions first
+    trained = glob.glob('model_*_trained.pkl')
+    if trained:
+        numbers = []
+        for f in trained:
+            m = re.search(r'version_(\d+)', f)
+            if m:
+                numbers.append((int(m.group(1)), f))
+        if numbers:
+            latest = max(numbers, key=lambda x: x[0])
+            return latest[1].replace('model_', '').replace('.pkl', '')
+    
+    # Fall back to highest plain version
+    plain = glob.glob('model_version_*.pkl')
+    if plain:
+        numbers = []
+        for f in plain:
+            m = re.search(r'version_(\d+)\.pkl$', f)
+            if m:
+                numbers.append((int(m.group(1)), f))
+        if numbers:
+            latest = max(numbers, key=lambda x: x[0])
+            return latest[1].replace('model_', '').replace('.pkl', '')
+    
+    return 'version_0'
+
+version = os.environ.get('MODEL_VERSION') or get_latest_trained_version()
 print(f" Loading model version: '{version}'")
 
 try:
