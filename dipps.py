@@ -641,7 +641,13 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
         if raw.info['sfreq'] != target_fs:
             raw.resample(target_fs)
 
-        raw_data      = raw.get_data()
+        # main issue causing negative result perhaps raw_data      = raw.get_data()
+        raw_data = raw.get_data() * 1e6 #convert V to microV
+
+        #print(f"Signal range: {raw_data.min():.6f} to {raw_data.max():.6f}") #checking
+
+        #print(f"Signal mean absolute: {np.abs(raw_data).mean():.6f}")
+
         filtered_data = reduce_eeg_noise(raw_data, sfreq=target_fs)
         raw           = mne.io.RawArray(filtered_data, raw.info)
 
@@ -677,8 +683,8 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
     features_male   = bins_to_waves(pd.DataFrame([row_male]))
     features_female = bins_to_waves(pd.DataFrame([row_female]))
 
-    proba_male   = model.predict_proba(features_male)[0]
-    proba_female = model.predict_proba(features_female)[0]
+    proba_male   = model.predict_proba(features_male.values)[0]
+    proba_female = model.predict_proba(features_female.values)[0]
     avg_proba    = (proba_male + proba_female) / 2
 
     pred_encoded = np.argmax(avg_proba)
