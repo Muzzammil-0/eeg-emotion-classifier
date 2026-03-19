@@ -2,6 +2,10 @@ This project uses the EEG brainwave dataset by Jordan J. Bird et al.
 Download it from: https://www.kaggle.com/datasets/birdy654/eeg-brainwave-dataset-feeling-emotions
 
 
+
+## NEEDS MORE EEG DATA TO MAKE THE MODEL PERFORM BETTER AS IT CURRENTLY WORKS GOOD ONLY ON JORDAN J. BIRD'S DATASET
+
+
     # EEG Emotion Classifier
 
 A Flask web application that classifies human emotions — **POSITIVE**, **NEUTRAL**, **NEGATIVE** — from EEG recordings in EDF format.
