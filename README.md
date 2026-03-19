@@ -1,7 +1,5 @@
 This project uses the EEG brainwave dataset by Jordan J. Bird et al.
 Download it from: https://www.kaggle.com/datasets/birdy654/eeg-brainwave-dataset-feeling-emotions
-Place emotions.csv in the project root, then run:
-    python dipps.py
 
 
     # EEG Emotion Classifier
