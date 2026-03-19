@@ -49,12 +49,12 @@ def bins_to_waves(df_bins):
     The _a columns represent the left-hemisphere (or male-subject) signal.
     The _b columns represent the right-hemisphere (or female-subject) signal.
     Asymmetry = _a - _b, which is non-zero when the two sides differ.
-    """
-    # NOTE: Bird's dataset uses _a for the male subject and _b for the female subject.
-    # During inference we construct two rows — one with the new signal as _a against
-    # the female baseline as _b, and one reversed — then average both predictions.
-    # This is why asymmetry is meaningful even with a single input signal.
 
+    NOTE: Bird's dataset uses _a for the male subject and _b for the female subject.
+    During inference we construct two rows — one with the new signal as _a against
+    the female baseline as _b, and one reversed — then average both predictions.
+    This is why asymmetry is meaningful even with a single input signal.
+    """
     band_ranges = {
         'delta': (5, 40),
         'theta': (40, 80),
@@ -515,14 +515,12 @@ def _select_channels_from_edf(df_signals, cleaned_names, device_model):
 
     for muse_ch, options in mapping.items():
         found = False
-        # Try exact registry options first
         for opt in options:
             opt_clean = opt.replace('.', '').replace('-', '')
             if opt_clean in cleaned_names:
                 selected[muse_ch] = df_signals[opt_clean].values
                 found = True
                 break
-        # Fall back to pattern-based matching
         if not found:
             for ch in cleaned_names:
                 if mapper.find_muse_channel(ch) == muse_ch:
@@ -542,23 +540,17 @@ def extract_features_for_training(edf_path, target_fs=150):
     """
     Load an EDF file and extract wave-band features suitable for model training.
     Returns a 1D numpy array of features, or None on failure.
-
-    NOTE: This function averages all 4 channels before FFT, same as inference,
-    so training and inference features are computed identically.
     """
     print(f"\n  Processing: {edf_path}")
     try:
-        print("  Step 1: Loading EDF...")
         raw = mne.io.read_raw_edf(edf_path, preload=True, verbose=False)
         print(f"    Loaded: {len(raw.ch_names)} channels at {raw.info['sfreq']} Hz")
 
-        print("  Step 2: Filtering...")
-        raw_data      = raw.get_data()
+        raw_data      = raw.get_data() * 1e6  # convert V to µV
         filtered_data = reduce_eeg_noise(raw_data, sfreq=raw.info['sfreq'])
         raw           = mne.io.RawArray(filtered_data, raw.info)
 
         if raw.info['sfreq'] != target_fs:
-            print(f"  Step 3: Resampling to {target_fs} Hz...")
             raw.resample(target_fs)
 
         df_signals    = raw.to_data_frame()
@@ -569,7 +561,6 @@ def extract_features_for_training(edf_path, target_fs=150):
         print(f"  Detected device: {device_model}")
 
         selected = _select_channels_from_edf(df_signals, cleaned_names, device_model)
-        print("  All required channels found")
 
         combined_signal = np.mean([selected['TP9'],  selected['AF7'],
                                    selected['AF8'],  selected['TP10']], axis=0)
@@ -579,9 +570,6 @@ def extract_features_for_training(edf_path, target_fs=150):
         max_bin  = np.searchsorted(freqs, 50.0)
         fft_500  = _pad_or_truncate(fft_vals[:max_bin])
 
-        # Use the same value for both _a and _b here because this is training data
-        # from a single-channel average. The asymmetry comes from the dual-baseline
-        # inference step, not from per-subject channel separation in the training CSV.
         row = {}
         for i in range(500):
             row[f'fft_{i}_a'] = fft_500[i]
@@ -609,7 +597,7 @@ def edf_to_csv(edf_path, csv_path, target_fs=150):
         raw.resample(target_fs)
     df = raw.to_data_frame()
     df.to_csv(csv_path, index=False)
-    print(f"Saved: {csv_path}  ({df.shape[0]} samples × {df.shape[1]} channels)")
+    print(f"Saved: {csv_path}  ({df.shape[0]} samples x {df.shape[1]} channels)")
     return df
 
 
@@ -637,17 +625,10 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
     else:
         raw = mne.io.read_raw_edf(edf_path, preload=True, verbose=False)
 
-        # FIX: resample BEFORE filtering so sfreq is correct inside reduce_eeg_noise
         if raw.info['sfreq'] != target_fs:
             raw.resample(target_fs)
 
-        # main issue causing negative result perhaps raw_data      = raw.get_data()
-        raw_data = raw.get_data() * 1e6 #convert V to microV
-
-        #print(f"Signal range: {raw_data.min():.6f} to {raw_data.max():.6f}") #checking
-
-        #print(f"Signal mean absolute: {np.abs(raw_data).mean():.6f}")
-
+        raw_data      = raw.get_data() * 1e6  # convert V to µV
         filtered_data = reduce_eeg_noise(raw_data, sfreq=target_fs)
         raw           = mne.io.RawArray(filtered_data, raw.info)
 
@@ -660,7 +641,6 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
 
         selected = _select_channels_from_edf(df_signals, cleaned_names, device_model)
 
-        # Cache the result
         _CHANNEL_CACHE[edf_path] = selected
         if len(_CHANNEL_CACHE) > _MAX_CACHE_SIZE:
             _CHANNEL_CACHE.popitem(last=False)
@@ -673,34 +653,56 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
     max_bin  = np.searchsorted(freqs, 50.0)
     fft_500  = _pad_or_truncate(fft_vals[:max_bin])
 
+    # --- Scale FFT to match training distribution ---
+    scaler_path = 'scaler_version_0.pkl'
+    if os.path.exists(scaler_path):
+        scaler   = joblib.load(scaler_path)
+        fft_501  = _pad_or_truncate(fft_500, target=501)
+        all_cols = [f'fft_{i}_a' for i in range(501)] + [f'fft_{i}_b' for i in range(501)]
+        raw_row  = np.concatenate([fft_501, fft_501]).reshape(1, -1)
+        raw_df   = pd.DataFrame(raw_row, columns=all_cols)
+        scaled   = scaler.transform(raw_df)[0]
+        fft_a    = scaled[:500]
+        fft_b    = scaled[500:1000]
+    else:
+        print("  WARNING: scaler not found, using raw FFT values")
+        fft_a = fft_500
+        fft_b = fft_500
+
     # --- Dual-baseline inference ---
-    row_male   = {f'fft_{i}_a': fft_500[i] for i in range(500)}
+    row_male   = {f'fft_{i}_a': fft_a[i] for i in range(500)}
     row_male.update({f'fft_{i}_b': female_baseline[i] for i in range(500)})
 
-    row_female = {f'fft_{i}_b': fft_500[i] for i in range(500)}
+    row_female = {f'fft_{i}_b': fft_b[i] for i in range(500)}
     row_female.update({f'fft_{i}_a': male_baseline[i] for i in range(500)})
 
     features_male   = bins_to_waves(pd.DataFrame([row_male]))
     features_female = bins_to_waves(pd.DataFrame([row_female]))
 
-    proba_male   = model.predict_proba(features_male.values)[0]
-    proba_female = model.predict_proba(features_female.values)[0]
+    proba_male   = model.predict_proba(features_male)[0]
+    proba_female = model.predict_proba(features_female)[0]
     avg_proba    = (proba_male + proba_female) / 2
 
     pred_encoded = np.argmax(avg_proba)
+    print(f"  proba_male:   {proba_male}")
+    print(f"  proba_female: {proba_female}")
+    print(f"  avg_proba:    {avg_proba}")
+    print(f"  classes:      {le.classes_}")
     return le.inverse_transform([pred_encoded])[0]
 
 
 # ==============================================
-# TRAINING  (python pipeline.py --data path/to/emotions.csv)
+# TRAINING
 # ==============================================
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Train EEG emotion classifier')
-    parser.add_argument('--data',    default= r"C:\Users\hp\Documents\EEG_BRAIN_FEELINGS_PROJECTS\emotions.csv", help='Path to training CSV')
-    parser.add_argument('--version', default='version_0',    help='Version name for saved artefacts')
+    parser.add_argument('--data',    default=r"C:\Users\hp\Documents\EEG_BRAIN_FEELINGS_PROJECTS\emotions.csv",
+                        help='Path to training CSV')
+    parser.add_argument('--version', default='version_0',
+                        help='Version name for saved artefacts')
     args = parser.parse_args()
 
     print(f"Loading data from: {args.data}")
@@ -727,6 +729,8 @@ if __name__ == "__main__":
     scaler = MinMaxScaler()
     train_df[numeric_cols] = scaler.fit_transform(train_df[numeric_cols])
     test_df[numeric_cols]  = scaler.transform(test_df[numeric_cols])
+    joblib.dump(scaler, f'scaler_{args.version}.pkl')
+    print(f"Scaler saved: scaler_{args.version}.pkl")
 
     x_train       = train_df[numeric_cols]
     train_targets = train_df[target_col]
@@ -738,7 +742,7 @@ if __name__ == "__main__":
 
     male_baseline, female_baseline = create_gender_baselines(x_train, train_targets, train_df)
 
-    le               = LabelEncoder()
+    le                = LabelEncoder()
     train_targets_enc = le.fit_transform(train_targets)
     test_targets_enc  = le.transform(test_targets)
 
@@ -782,10 +786,8 @@ if __name__ == "__main__":
         female_baseline=female_baseline
     )
 
-    np.save(f'X_test_{args.version}.npy',        x_test_waves)
-    np.save(f'y_test_{args.version}.npy',         test_targets_enc)
-    np.save(f'y_test_labels_{args.version}.npy',  test_targets)
+    np.save(f'X_test_{args.version}.npy',       x_test_waves)
+    np.save(f'y_test_{args.version}.npy',        test_targets_enc)
+    np.save(f'y_test_labels_{args.version}.npy', test_targets)
 
     print("Done.")
-
-    
