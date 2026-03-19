@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 import os
 import tempfile
+import glob
 
 import traceback
 import sys
@@ -15,7 +16,7 @@ app = Flask(__name__)
 # ===== LOAD MODEL =====
 #version = os.environ.get('MODEL_VERSION', 'version_0') # Default to "version_0"
 import re
-import glob
+
 
 def get_latest_trained_version():
     """Auto-detect the highest trained version available."""
