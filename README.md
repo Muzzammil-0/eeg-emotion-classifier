@@ -12,8 +12,6 @@ A Flask web application that classifies human emotions — **POSITIVE**, **NEUTR
 
 The core idea: most EEG emotion research is device-specific. This classifier normalises signals from **20+ different EEG headsets** to a common 4-electrode feature space, so one trained model works regardless of which device recorded the data. Upload any EDF file, get an emotion prediction.
 
-Built as a solo mini-project in 4th semester CSE, SSTC Bhilai.
-
 
 
 ## How It Works
