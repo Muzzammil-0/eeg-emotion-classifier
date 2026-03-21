@@ -56,9 +56,9 @@ def bins_to_waves(df_bins):
     This is why asymmetry is meaningful even with a single input signal.
     """
     band_ranges = {
-        'delta': (5, 40),
-        'theta': (40, 80),
-        'alpha': (80, 130),
+        'delta': (5,   40),
+        'theta': (40,  80),
+        'alpha': (80,  130),
         'beta':  (130, 300),
         'gamma': (300, 500)
     }
@@ -142,10 +142,10 @@ class EEGChannelMapper:
 
     def __init__(self):
         self.exact_matches = {
-            'P7': 'TP9',  'P9': 'TP9',  'T7': 'TP9',  'T5': 'TP9',
-            'P8': 'TP10', 'P10': 'TP10', 'T8': 'TP10', 'T6': 'TP10',
-            'F7': 'AF7',  'AF7': 'AF7', 'F5': 'AF7',
-            'F8': 'AF8',  'AF8': 'AF8', 'F6': 'AF8',
+            'P7':  'TP9',  'P9':  'TP9',  'T7': 'TP9',  'T5': 'TP9',
+            'P8':  'TP10', 'P10': 'TP10', 'T8': 'TP10', 'T6': 'TP10',
+            'F7':  'AF7',  'AF7': 'AF7',  'F5': 'AF7',
+            'F8':  'AF8',  'AF8': 'AF8',  'F6': 'AF8',
         }
 
     def find_muse_channel(self, eeg_channel_name):
@@ -324,10 +324,10 @@ CHANNEL_REGISTRY = {
             'P9',  'P10', 'Iz'
         ],
         'mapping': {
-            'TP9':  ['P7',  'P9',  'TP7', 'T7', 'P3',  'CP5'],
-            'AF7':  ['AF7', 'F7',  'F5',  'AF3', 'F3', 'Fp1'],
-            'AF8':  ['AF8', 'F8',  'F6',  'AF4', 'F4', 'Fp2'],
-            'TP10': ['P8',  'P10', 'TP8', 'T8', 'P4',  'CP6']
+            'TP9':  ['P7',  'P9',  'TP7', 'T7',  'P3',  'CP5'],
+            'AF7':  ['AF7', 'F7',  'F5',  'AF3', 'F3',  'Fp1'],
+            'AF8':  ['AF8', 'F8',  'F6',  'AF4', 'F4',  'Fp2'],
+            'TP10': ['P8',  'P10', 'TP8', 'T8',  'P4',  'CP6']
         }
     },
     'neuroscan_32': {
@@ -380,10 +380,10 @@ CHANNEL_REGISTRY = {
             'P10', 'PO8', 'PO4', 'O2',  'Cz',  'Fz',  'FCz', 'Iz',  'A1',  'A2'
         ],
         'mapping': {
-            'TP9':  ['P7',  'P9',  'TP7', 'T7',  'P3', 'A1'],
-            'AF7':  ['AF7', 'F7',  'F5',  'AF3', 'F3', 'Fp1'],
-            'AF8':  ['AF8', 'F8',  'F6',  'AF4', 'F4', 'Fp2'],
-            'TP10': ['P8',  'P10', 'TP8', 'T8',  'P4', 'A2']
+            'TP9':  ['P7',  'P9',  'TP7', 'T7',  'P3',  'A1'],
+            'AF7':  ['AF7', 'F7',  'F5',  'AF3', 'F3',  'Fp1'],
+            'AF8':  ['AF8', 'F8',  'F6',  'AF4', 'F4',  'Fp2'],
+            'TP10': ['P8',  'P10', 'TP8', 'T8',  'P4',  'A2']
         }
     },
     'brainproducts_actichamp_32': {
@@ -408,10 +408,10 @@ CHANNEL_REGISTRY = {
             'P7',  'P8',  'T7',  'T8',  'TP7', 'TP8', 'TP9', 'TP10', 'Cz', 'CPz', 'Pz'
         ],
         'mapping': {
-            'TP9':  ['TP9', 'P7',  'TP7', 'P3'],
-            'AF7':  ['F7',  'FC5', 'FT7', 'FC3'],
-            'AF8':  ['F8',  'FC6', 'FT8', 'FC4'],
-            'TP10': ['TP10', 'P8', 'TP8', 'P4']
+            'TP9':  ['TP9',  'P7',  'TP7', 'P3'],
+            'AF7':  ['F7',   'FC5', 'FT7', 'FC3'],
+            'AF8':  ['F8',   'FC6', 'FT8', 'FC4'],
+            'TP10': ['TP10', 'P8',  'TP8', 'P4']
         }
     },
     'gtec_nautilus': {
@@ -498,7 +498,7 @@ CHANNEL_REGISTRY = {
 
 
 # ==============================================
-# EDF FEATURE EXTRACTION (used when building new training data from EDF files)
+# EDF FEATURE EXTRACTION
 # ==============================================
 
 def _select_channels_from_edf(df_signals, cleaned_names, device_model):
@@ -605,17 +605,31 @@ def edf_to_csv(edf_path, csv_path, target_fs=150):
 # INFERENCE
 # ==============================================
 
-def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_baseline, target_fs=150):
+def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_baseline,
+                                     target_fs=150, scaler=None, verbose=False):
     """
     Predict emotion label from a single EDF file.
 
-    Strategy:
-      - We don't know if the new subject is male or female.
-      - So we run inference twice:
-          1. Treat the signal as _a (male side), pair it with the female baseline as _b.
-          2. Treat the signal as _b (female side), pair it with the male baseline as _a.
-      - Average both probability vectors and take argmax.
-      - This way asymmetry features are non-zero and meaningful in both branches.
+    Parameters
+    ----------
+    edf_path         : path to EDF file
+    model            : trained VotingClassifier
+    le               : fitted LabelEncoder
+    male_baseline    : mean FFT profile from _a (male) training columns
+    female_baseline  : mean FFT profile from _b (female) training columns
+    target_fs        : target sampling rate (default 150 Hz)
+    scaler           : fitted MinMaxScaler from training (recommended).
+                       If None, raw FFT values are used — may reduce accuracy.
+                       i will say it indeed has reduced accuracy by 2%
+    verbose          : if True, prints per-branch probability vectors
+
+    Strategy
+    --------
+    We don't know the gender of a new subject, so inference runs twice:
+      1. Signal as _a (male side), paired with female baseline as _b.
+      2. Signal as _b (female side), paired with male baseline as _a.
+    Both probability vectors are averaged before taking argmax.
+    This keeps asymmetry features meaningful for any input.
     """
     # --- Check cache ---
     if edf_path in _CHANNEL_CACHE:
@@ -654,18 +668,15 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
     fft_500  = _pad_or_truncate(fft_vals[:max_bin])
 
     # --- Scale FFT to match training distribution ---
-    scaler_path = 'scaler_version_0.pkl'
-    if os.path.exists(scaler_path):
-        scaler   = joblib.load(scaler_path)
+    if scaler is not None:
         fft_501  = _pad_or_truncate(fft_500, target=501)
         all_cols = [f'fft_{i}_a' for i in range(501)] + [f'fft_{i}_b' for i in range(501)]
         raw_row  = np.concatenate([fft_501, fft_501]).reshape(1, -1)
-        raw_df   = pd.DataFrame(raw_row, columns=all_cols)
-        scaled   = scaler.transform(raw_df)[0]
+        scaled   = scaler.transform(pd.DataFrame(raw_row, columns=all_cols))[0]
         fft_a    = scaled[:500]
         fft_b    = scaled[500:1000]
     else:
-        print("  WARNING: scaler not found, using raw FFT values")
+        print("  WARNING: no scaler provided — using raw FFT values (may reduce accuracy)")
         fft_a = fft_500
         fft_b = fft_500
 
@@ -683,11 +694,13 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
     proba_female = model.predict_proba(features_female)[0]
     avg_proba    = (proba_male + proba_female) / 2
 
+    if verbose:
+        print(f"  proba_male:   {proba_male}")
+        print(f"  proba_female: {proba_female}")
+        print(f"  avg_proba:    {avg_proba}")
+        print(f"  classes:      {le.classes_}")
+
     pred_encoded = np.argmax(avg_proba)
-    print(f"  proba_male:   {proba_male}")
-    print(f"  proba_female: {proba_female}")
-    print(f"  avg_proba:    {avg_proba}")
-    print(f"  classes:      {le.classes_}")
     return le.inverse_transform([pred_encoded])[0]
 
 
@@ -699,10 +712,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Train EEG emotion classifier')
-    parser.add_argument('--data',    default=r"C:\Users\hp\Documents\EEG_BRAIN_FEELINGS_PROJECTS\emotions.csv",
-                        help='Path to training CSV')
+    parser.add_argument('--data',    default='emotions.csv',
+                        help='Path to training CSV (default: emotions.csv)')
     parser.add_argument('--version', default='version_0',
-                        help='Version name for saved artefacts')
+                        help='Version name for saved artefacts (default: version_0)')
     args = parser.parse_args()
 
     print(f"Loading data from: {args.data}")
