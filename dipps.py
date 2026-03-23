@@ -730,7 +730,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Train EEG emotion classifier')
-    parser.add_argument('--data',    default='emotions.csv',
+    parser.add_argument('--data',    default=r'C:\Users\PROJECTS\EEG_EMOTION_CLASSIFIER\emotions_combined.csv',
                         help='Path to training CSV (default: emotions.csv)')
     parser.add_argument('--version', default='version_0',
                         help='Version name for saved artefacts (default: version_0)')
