@@ -12,6 +12,7 @@ from sklearn.metrics import classification_report
 from collections import OrderedDict
 import mne
 from sklearn.utils.class_weight import compute_class_weight
+from sklearn.utils.class_weight import compute_sample_weight
 from scipy import signal
 import os
 import json
@@ -728,6 +729,9 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
 
 if __name__ == "__main__":
     import argparse
+    import sklearn
+    from sklearn.utils.class_weight import compute_sample_weight
+    from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
     parser = argparse.ArgumentParser(description='Train EEG emotion classifier')
     parser.add_argument('--data',    default=r'C:\Users\PROJECTS\EEG_EMOTION_CLASSIFIER\emotions_combined.csv',
@@ -777,17 +781,19 @@ if __name__ == "__main__":
     train_targets_enc = le.fit_transform(train_targets)
     test_targets_enc  = le.transform(test_targets)
 
-    weights = compute_class_weight(
+    sample_weights = compute_sample_weight(
         class_weight='balanced',
-        classes=np.unique(train_targets_enc),
         y=train_targets_enc
     )
 
-    class_weight_dict = dict(enumerate(weights))
+    sklearn.set_config(enable_metadata_routing=True)
 
-    dt  = DecisionTreeClassifier(max_depth=4, random_state=42)
-    rf  = RandomForestClassifier(max_depth=4, n_estimators=100, random_state=42)
-    xgb = XGBClassifier(max_depth=3, n_estimators=50, random_state=42, n_jobs=-1)
+    dt  = DecisionTreeClassifier(random_state=42,
+                                  class_weight='balanced').set_fit_request(sample_weight=True)
+    rf  = RandomForestClassifier(random_state=42,
+                                  class_weight='balanced').set_fit_request(sample_weight=True)
+    xgb = XGBClassifier(random_state=42,
+                         n_jobs=-1).set_fit_request(sample_weight=True)
 
     voting_clf = VotingClassifier(
         estimators=[('dt', dt), ('rf', rf), ('xgb', xgb)],
@@ -795,8 +801,36 @@ if __name__ == "__main__":
         weights=[1, 2, 5]
     )
 
-    print("Training model...")
-    voting_clf.fit(x_train_waves, train_targets_enc)
+    param_grid = {
+        'xgb__max_depth':        [2, 3, 4],
+        'xgb__n_estimators':     [50, 100],
+        'xgb__min_child_weight': [1, 5, 10],
+        'rf__max_depth':         [3, 4],
+        'rf__n_estimators':      [50, 100],
+        'rf__min_samples_leaf':  [1, 5, 10],
+        'dt__max_depth':         [2, 3],
+        'dt__min_samples_leaf':  [1, 5, 10],
+    }
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    print("Searching for best hyperparameters...")
+    grid_search = GridSearchCV(
+        voting_clf,
+        param_grid,
+        cv=cv,
+        scoring='balanced_accuracy',
+        n_jobs=-1,
+        verbose=1
+    )
+
+    grid_search.fit(x_train_waves, train_targets_enc,
+                    sample_weight=sample_weights)
+
+    print(f"Best params:   {grid_search.best_params_}")
+    print(f"Best CV score: {grid_search.best_score_:.4f}")
+
+    voting_clf = grid_search.best_estimator_
 
     train_acc = voting_clf.score(x_train_waves, train_targets_enc)
     test_acc  = voting_clf.score(x_test_waves,  test_targets_enc)
