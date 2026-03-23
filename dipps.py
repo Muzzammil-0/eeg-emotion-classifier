@@ -11,6 +11,7 @@ from xgboost import XGBClassifier
 from sklearn.metrics import classification_report
 from collections import OrderedDict
 import mne
+from sklearn.utils.class_weight import compute_class_weight
 from scipy import signal
 import os
 import json
@@ -775,6 +776,14 @@ if __name__ == "__main__":
     le                = LabelEncoder()
     train_targets_enc = le.fit_transform(train_targets)
     test_targets_enc  = le.transform(test_targets)
+
+    weights = compute_class_weight(
+        class_weight='balanced',
+        classes=np.unique(train_targets_enc),
+        y=train_targets_enc
+    )
+
+    class_weight_dict = dict(enumerate(weights))
 
     dt  = DecisionTreeClassifier(max_depth=4, random_state=42)
     rf  = RandomForestClassifier(max_depth=4, n_estimators=100, random_state=42)
