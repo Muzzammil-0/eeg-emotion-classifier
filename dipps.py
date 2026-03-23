@@ -216,6 +216,10 @@ def detect_device_model(channel_names):
             return 'egi_64'
         else:
             return 'egi_32'
+        
+    emotiv_pattern = {'AF3', 'FC5', 'FC6', 'AF4'}
+    if emotiv_pattern.issubset(channel_set):
+        return 'emotiv_x_14'
 
     return 'generic_10_20'
 
@@ -484,6 +488,19 @@ CHANNEL_REGISTRY = {
             'TP10': ['E10', 'E11', 'E12']
         }
     },
+
+    'emotiv_x_14': {
+        'brand': 'emotiv', 'model': 'epoc_x',
+        'channels': ['AF3', 'F7', 'FC5', 'T7', 'P7', '01',
+                     '02', 'P8', 'T8', 'FC6', 'F4','F8', 'AF4'],
+        'mapping': {
+            'TP9': ['P7', 'T7', '01'],
+            'AF7': ['AF3', 'F7', 'F3'],
+            'AF8': ['AF4', 'F8', 'F4'],
+            'TP10': ['P8', 'T8', '02']
+        }
+    },
+
     'generic_10_20': {
         'brand': 'unknown', 'model': '10-20_system',
         'channels': [],
