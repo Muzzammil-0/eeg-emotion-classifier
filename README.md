@@ -6,6 +6,9 @@ A Flask web application that classifies human emotions — **POSITIVE**, **NEUTR
 
 ---
 
+## UPDATE:** **From LOSO Cross-Validation: Achieved 38% +-9 % balanced accuracy across subjects -- highlighting the challenge of cross-subject generalization.
+App Feature: One-click retraining from professional recordings. Creates versioned models (patient_john_v1.pkl) stored privately**
+
 ## Why This Matters
 
 Depression and anxiety are among the leading causes of disability worldwide. Both conditions are characterised by sustained negative emotional states, yet clinical assessment still relies almost entirely on self-report — which is slow, subjective, and often inaccurate.
@@ -276,7 +279,7 @@ python retraining_eeg_version.py version_0
 
 ## Roadmap
 
-- [ ] Subject-independent cross-validation (leave-one-subject-out)
+- [ ] Confidence scores + uncertainty
 - [ ] DEAP dataset integration (32 subjects, valence/arousal → 3-class mapping)
 - [ ] Per-channel FFT instead of pre-averaging to preserve spatial information
 - [ ] Compute left/right hemisphere FFT separately end-to-end in training
