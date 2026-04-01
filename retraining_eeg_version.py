@@ -45,7 +45,7 @@ def retrain_version(version_name, new_version_name=None):
     out_version = new_version_name if new_version_name else f"{version_name}_trained"
     
     save_training_state(
-        version_0=out_version,
+        version_name=out_version,
         X=X,
         y=y,
         model=new_model,
