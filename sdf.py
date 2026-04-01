@@ -176,7 +176,7 @@ def upload_file():
                 classes[i]: float(round(float(avg_proba[i]) * 100, 1))
                 for i in range(len(classes))
             },
-            'processing_time': round(time.time() - start, 2),
+            'processing_time': round(time.time() - start_total, 2),
             'model_version':   version
         })
 
