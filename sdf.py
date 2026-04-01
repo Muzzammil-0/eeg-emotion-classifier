@@ -184,7 +184,8 @@ def upload_file():
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         traceback.print_exc(file=sys.stdout)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e),
+                        'traceback': traceback.format_exc()}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
