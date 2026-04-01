@@ -688,9 +688,9 @@ def predict_emotion_from_edf_single(edf_path, model, le, male_baseline, female_b
 
     # --- Scale FFT to match training distribution ---
     if scaler is not None:
-        fft_501  = _pad_or_truncate(fft_500, target=501)
-        all_cols = [f'fft_{i}_a' for i in range(501)] + [f'fft_{i}_b' for i in range(501)]
-        raw_row  = np.concatenate([fft_501, fft_501]).reshape(1, -1)
+        
+        all_cols = [f'fft_{i}_a' for i in range(500)] + [f'fft_{i}_b' for i in range(500)]
+        raw_row  = np.concatenate([fft_500, fft_500]).reshape(1, -1)
         scaled   = scaler.transform(pd.DataFrame(raw_row, columns=all_cols))[0]
         fft_a    = scaled[:500]
         fft_b    = scaled[500:1000]
@@ -752,7 +752,7 @@ if __name__ == "__main__":
 
     train_df, test_df = train_test_split(EEG_df, test_size=0.1, random_state=42)
 
-    input_cols   = [f'fft_{i}_a' for i in range(501)] + [f'fft_{i}_b' for i in range(501)]
+    input_cols   = [f'fft_{i}_a' for i in range(500)] + [f'fft_{i}_b' for i in range(500)]
     target_col   = 'label'
     all_numeric  = train_df.select_dtypes(include=np.number).columns.tolist()
     numeric_cols = [col for col in all_numeric if col in input_cols]

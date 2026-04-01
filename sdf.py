@@ -115,10 +115,10 @@ def _run_inference(temp_path):
     fft_500  = _pad_or_truncate(fft_vals[:max_bin])
 
     if scaler is not None:
-        fft_501  = _pad_or_truncate(fft_500, target=501)
-        all_cols = ([f'fft_{i}_a' for i in range(501)] +
-                    [f'fft_{i}_b' for i in range(501)])
-        raw_row  = np.concatenate([fft_501, fft_501]).reshape(1, -1)
+       
+        all_cols = ([f'fft_{i}_a' for i in range(500)] +
+                    [f'fft_{i}_b' for i in range(500)])
+        raw_row  = np.concatenate([fft_500, fft_500]).reshape(1, -1)
         scaled   = scaler.transform(pd.DataFrame(raw_row, columns=all_cols))[0]
         fft_a    = scaled[:500]
         fft_b    = scaled[500:1000]
