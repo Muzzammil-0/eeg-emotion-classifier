@@ -16,6 +16,13 @@ from dipps import ( predict_emotion_from_edf_single, detect_device_model,
                       _CHANNEL_CACHE, _MAX_CACHE_SIZE ) 
 from scipy.fft import rfft, rfftfreq 
 from collections import OrderedDict 
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(base_dir, f'model-{version}.pkl')
+if not os.path.exists(model_path):
+    print(f"Model file '{model_path}' not found. Please ensure the model is trained and the file exists.")
+    sys.exit(1)
+    
 import mne
 
 #Doctor‑related imports
