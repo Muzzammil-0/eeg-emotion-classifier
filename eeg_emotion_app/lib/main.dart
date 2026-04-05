@@ -172,7 +172,7 @@ class _MyHomePageState extends State<MyHomePage> {
       if (response.statusCode == 200) {
         // Retraining succeeded, now reload the model
         var reloadResponse = await http.post(
-          Uri.parse('http://localhost:10000/reload_model'),
+          Uri.parse('http://localhost:10001/reload_model'),
         );
         var reloadJson = jsonDecode(reloadResponse.body);
         if (reloadResponse.statusCode == 200) {

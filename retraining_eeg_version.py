@@ -6,6 +6,9 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder
+import shutil
+import os
+
 
 def retrain_version(version_name, new_version_name=None):
     """
@@ -43,6 +46,17 @@ def retrain_version(version_name, new_version_name=None):
     
     # 5. Save the retrained version
     out_version = new_version_name if new_version_name else f"{version_name}_trained"
+
+    #copying scaler from the base version (version_name) to the trained version
+    
+    scaler_src = f'scaler_{version_name}.pkl'
+    scaler_dst = f'scaler_{out_version}.pkl'
+    if os.path.exists(scaler_src):
+        shutil.copy(scaler_src, scaler_dst)
+        print(f" Copied scaler to: {scaler_dst}")
+    else:
+        print(f" Warning: scaler_{version_name}.pkl not found, scaler will be missing for trained version")
+
     
     save_training_state(
         version_name=out_version,

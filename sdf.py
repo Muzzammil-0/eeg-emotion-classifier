@@ -30,7 +30,7 @@ CORS(app)
 #Helper: get latest trained model version
 
 def get_latest_trained_version():
-    trained = glob.glob('model_*_trained.pkl')
+    trained = glob.glob('model_version_*_trained.pkl')
     if trained:
         numbers = []
         for f in trained:
@@ -251,14 +251,19 @@ def reload_model():
         female_baseline = np.load(f'female_baseline_{new_version}.npy')
 
         scaler_path = f'scaler_{new_version}.pkl'
-        scaler = joblib.load(scaler_path) if os.path.exists(scaler_path) else None
+        if os.path.exists(scaler_path):
+            scaler = joblib.load(scaler_path)
+        else:
+            print(f"Warning:scaler for {new_version} not found -  using None (raw FFT values)")
+            scaler = None
+        
         version = new_version
 
         return jsonify({
             'message': f'Model reloaded to {new_version}',
-            'version': new_version,
-            'scaler_used': scaler is not None
+            'version': new_version
         })
+        
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         return jsonify({'error': str(e)}), 500
