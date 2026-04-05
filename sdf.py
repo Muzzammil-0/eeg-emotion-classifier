@@ -30,11 +30,11 @@ CORS(app)
 #Helper: get latest trained model version
 
 def get_latest_trained_version():
-    trained = glob.glob('model_*trained.pkl')
+    trained = glob.glob('model_*_trained.pkl')
     if trained:
         numbers = []
         for f in trained:
-            m = re.search(r'version(\d+)', f)
+            m = re.search(r'version_(\d+)', f)
             if m:
                 numbers.append((int(m.group(1)), f))
         if numbers:
