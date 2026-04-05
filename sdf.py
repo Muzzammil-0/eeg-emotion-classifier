@@ -60,7 +60,7 @@ version = get_latest_trained_version()
 print(f"Loading model version: '{version}'")
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(base_dir, f'model-{version}.pkl')
+model_path = os.path.join(base_dir, f'model_{version}.pkl')
 if not os.path.exists(model_path):
     print(f"Model file '{model_path}' not found. Please ensure the model is trained and the file exists.")
     sys.exit(1)
