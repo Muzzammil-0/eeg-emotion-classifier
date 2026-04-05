@@ -60,7 +60,7 @@ class _MyHomePageState extends State<MyHomePage> {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse(
-            'http://localhost:10000/upload'), // adjust if your backend runs on different port
+            'http://localhost:10001/upload'), // adjust if your backend runs on different port
       );
       request.files.add(
         await http.MultipartFile.fromPath('file', result.files.single.path!),
@@ -119,7 +119,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => _isUploading = true);
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('http://localhost:10000/add_patient'),
+      Uri.parse('http://localhost:10001/add_patient'),
     );
     request.files.add(
       await http.MultipartFile.fromPath('file', result.files.single.path!),
@@ -164,7 +164,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => _isRetraining = true);
     try {
       var response = await http.post(
-        Uri.parse('http://localhost:10000/retrain'),
+        Uri.parse('http://localhost:10001/retrain'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'version': _newDatasetVersion}),
       );
