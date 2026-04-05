@@ -34,7 +34,7 @@ def get_latest_trained_version():
     if trained:
         numbers = []
         for f in trained:
-            m = re.search(r'version_(\d+)', f)
+            m = re.search(r'version_(\d+)_trained', f)
             if m:
                 numbers.append((int(m.group(1)), f))
         if numbers:
