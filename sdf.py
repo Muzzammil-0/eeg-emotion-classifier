@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import time as time
 import joblib 
-from flask import Flask, request, jsonify 
+from flask import Flask, request, jsonify, render_template 
 from flask_cors import CORS 
 from dipps import ( predict_emotion_from_edf_single, detect_device_model,
                     _select_channels_from_edf, bins_to_waves,
@@ -16,19 +16,20 @@ from dipps import ( predict_emotion_from_edf_single, detect_device_model,
                       _CHANNEL_CACHE, _MAX_CACHE_SIZE ) 
 from scipy.fft import rfft, rfftfreq 
 from collections import OrderedDict 
-
 import mne
 
-#Doctor‑related imports
+# FEDERATED LEARNING ADDITION: import Flower
+import flwr as fl
+from typing import Dict, Tuple, List
 
+# Doctor‑related imports
 from doctor_validation_set_for_eeg_model import add_patient_to_training 
 from retraining_eeg_version import retrain_version
 
 app = Flask(__name__) 
 CORS(app)
 
-#Helper: get latest trained model version
-
+# Helper: get latest trained model version
 def get_latest_trained_version():
     trained = glob.glob('model_version_*_trained.pkl')
     if trained:
@@ -40,7 +41,6 @@ def get_latest_trained_version():
         if numbers:
             latest = max(numbers, key=lambda x: x[0])
             return latest[1].replace('model_', '').replace('.pkl', '')
-
     plain = glob.glob('model_version_*.pkl')
     if plain:
         numbers = []
@@ -51,11 +51,9 @@ def get_latest_trained_version():
         if numbers:
             latest = max(numbers, key=lambda x: x[0])
             return latest[1].replace('model_', '').replace('.pkl', '')
-
     return 'version_0'
 
-#Load model and related artefacts
-
+# Load model and related artefacts
 version = get_latest_trained_version()
 print(f"Loading model version: '{version}'")
 
@@ -64,7 +62,6 @@ model_path = os.path.join(base_dir, f'model_{version}.pkl')
 if not os.path.exists(model_path):
     print(f"Model file '{model_path}' not found. Please ensure the model is trained and the file exists.")
     sys.exit(1)
-
 
 try: 
     model = joblib.load(f'model_{version}.pkl') 
@@ -78,13 +75,67 @@ except Exception as e:
 
 scaler_path = f'scaler_{version}.pkl' 
 if os.path.exists(scaler_path):
-     scaler = joblib.load(scaler_path) 
-     print(f"Scaler loaded from '{scaler_path}'") 
-else: scaler = None 
-print("No scaler found, proceeding without it")
+    scaler = joblib.load(scaler_path) 
+    print(f"Scaler loaded from '{scaler_path}'") 
+else:
+    scaler = None 
+    print("No scaler found, proceeding without it")
 
-#Shared inference helper (used by /upload)
+# FEDERATED LEARNING ADDITION: Load training data for the current version
+# These will be used when the clinician clicks "Contribute"
+X_train_path = f'X_train_{version}.npy'
+y_train_path = f'y_train_{version}.npy'
+X_test_path = f'X_test_{version}.npy'
+y_test_path = f'y_test_{version}.npy'
 
+if os.path.exists(X_train_path) and os.path.exists(y_train_path):
+    X_train = np.load(X_train_path)
+    y_train = np.load(y_train_path, allow_pickle=True)
+    # Encode labels to match model's label encoder
+    y_train_enc = le.transform(y_train)  # use existing label encoder
+    print(f"Loaded training data: {X_train.shape}, {len(y_train)} samples")
+else:
+    X_train = None
+    y_train = None
+    y_train_enc = None
+    print("Warning: Training data not found for this version. Federated learning will not work.")
+
+if os.path.exists(X_test_path) and os.path.exists(y_test_path):
+    X_test = np.load(X_test_path)
+    y_test = np.load(y_test_path)
+    print(f"Loaded test data: {X_test.shape}, {len(y_test)} samples")
+else:
+    X_test = None
+    y_test = None
+    print("Warning: Test data not found for this version.")
+
+# FEDERATED LEARNING ADDITION: Flower client class
+class FlowerClient(fl.client.NumPyClient):
+    def __init__(self, model, x_train, y_train_enc, x_test, y_test):
+        self.model = model
+        self.x_train = x_train
+        self.y_train = y_train_enc
+        self.x_test = x_test
+        self.y_test = y_test
+
+    def get_parameters(self, config):
+        # For scikit-learn models, we don't need to send parameters; training happens in fit()
+        return []
+
+    def fit(self, parameters, config):
+        # Retrain the model on local data (same as retraining on the latest dataset)
+        print("Federated learning: starting local training...")
+        self.model.fit(self.x_train, self.y_train)
+        print("Federated learning: local training finished.")
+        # Return empty parameters, number of samples, and empty dict
+        return [], len(self.x_train), {}
+
+    def evaluate(self, parameters, config):
+        # Evaluate on local test set
+        acc = self.model.score(self.x_test, self.y_test) if self.x_test is not None else 0.0
+        return 0.0, len(self.x_test) if self.x_test is not None else 0, {"accuracy": float(acc)}
+
+# Shared inference helper (used by /upload)
 def _run_inference(temp_path):
     global _CHANNEL_CACHE 
     if temp_path in _CHANNEL_CACHE:
@@ -94,25 +145,21 @@ def _run_inference(temp_path):
         raw = mne.io.read_raw_edf(temp_path, preload=True, verbose=False) 
         if raw.info['sfreq'] != 150:
             raw.resample(150)
-
         raw_data = raw.get_data() * 1e6
         filtered_data = reduce_eeg_noise(raw_data, sfreq=150)
         raw = mne.io.RawArray(filtered_data, raw.info)
-
         df_signals = raw.to_data_frame()
         cleaned_names = [ch.replace('.', '').replace('-', '') for ch in df_signals.columns]
         df_signals.columns = cleaned_names
-
         device_model = detect_device_model(cleaned_names)
         print(f"Detected device: {device_model}")
-
         selected = _select_channels_from_edf(df_signals, cleaned_names, device_model)
         _CHANNEL_CACHE[temp_path] = selected
         if len(_CHANNEL_CACHE) > _MAX_CACHE_SIZE:
             _CHANNEL_CACHE.popitem(last=False)
 
     combined_signal = np.mean([selected['TP9'], selected['AF7'],
-                           selected['AF8'], selected['TP10']], axis=0)
+                               selected['AF8'], selected['TP10']], axis=0)
     fft_vals = np.abs(rfft(combined_signal))
     freqs = rfftfreq(len(combined_signal), 1 / 150)
     max_bin = np.searchsorted(freqs, 50.0)
@@ -129,7 +176,6 @@ def _run_inference(temp_path):
 
     row_male = {f'fft_{i}_a': fft_a[i] for i in range(500)}
     row_male.update({f'fft_{i}_b': female_baseline[i] for i in range(500)})
-
     row_female = {f'fft_{i}_b': fft_b[i] for i in range(500)}
     row_female.update({f'fft_{i}_a': male_baseline[i] for i in range(500)})
 
@@ -143,11 +189,9 @@ def _run_inference(temp_path):
     pred_idx = int(np.argmax(avg_proba))
     emotion = le.inverse_transform([pred_idx])[0]
     classes = list(le.classes_)
-
     return emotion, avg_proba, classes
 
-#routes
-
+# Routes
 @app.route('/') 
 def home(): 
     return render_template('index.html')
@@ -179,7 +223,6 @@ def upload_file():
             'model_version': version
         })
     except Exception as e:
-
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         traceback.print_exc(file=sys.stdout)
@@ -191,7 +234,8 @@ def health():
 
 @app.route('/add_patient', methods=['POST']) 
 def add_patient():
-    if 'file' not in request.files or 'label' not in request.form: return jsonify({'error': 'Missing file or label'}), 400
+    if 'file' not in request.files or 'label' not in request.form:
+        return jsonify({'error': 'Missing file or label'}), 400
 
     file = request.files['file']
     label = request.form['label']
@@ -232,7 +276,7 @@ def retrain():
         return jsonify({'error': 'Missing version'}), 400
     try:
         trained_version = retrain_version(version_name)
-        return jsonify({ 'message': f'Retraining complete. New model: {trained_version}', 'trained_version': trained_version })
+        return jsonify({'message': f'Retraining complete. New model: {trained_version}', 'trained_version': trained_version})
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         return jsonify({'error': str(e)}), 500
@@ -254,28 +298,62 @@ def reload_model():
         if os.path.exists(scaler_path):
             scaler = joblib.load(scaler_path)
         else:
-            print(f"Warning:scaler for {new_version} not found -  using None (raw FFT values)")
+            print(f"Warning: scaler for {new_version} not found - using None (raw FFT values)")
             scaler = None
         
         version = new_version
 
-        return jsonify({
-            'message': f'Model reloaded to {new_version}',
-            'version': new_version
-        })
+        # FEDERATED LEARNING ADDITION: Reload training data for the new version
+        global X_train, y_train, y_train_enc, X_test, y_test
+        X_train_path = f'X_train_{version}.npy'
+        y_train_path = f'y_train_{version}.npy'
+        X_test_path = f'X_test_{version}.npy'
+        y_test_path = f'y_test_{version}.npy'
+
+        if os.path.exists(X_train_path) and os.path.exists(y_train_path):
+            X_train = np.load(X_train_path)
+            y_train = np.load(y_train_path, allow_pickle=True)
+            y_train_enc = le.transform(y_train)
+            print(f"Reloaded training data: {X_train.shape}, {len(y_train)} samples")
+        else:
+            X_train = None
+            y_train = None
+            y_train_enc = None
+            print("Warning: Training data not found for this version.")
+
+        if os.path.exists(X_test_path) and os.path.exists(y_test_path):
+            X_test = np.load(X_test_path)
+            y_test = np.load(y_test_path)
+            print(f"Reloaded test data: {X_test.shape}, {len(y_test)} samples")
+        else:
+            X_test = None
+            y_test = None
+
+        return jsonify({'message': f'Model reloaded to {new_version}', 'version': new_version})
         
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         return jsonify({'error': str(e)}), 500
-    
-#main entry point
 
+# FEDERATED LEARNING ADDITION: Contribute endpoint for Flower client
+@app.route('/contribute', methods=['POST'])
+def contribute():
+    global model, X_train, y_train_enc, X_test, y_test
+    if X_train is None or y_train_enc is None:
+        return jsonify({'error': 'Training data not available for this version. Cannot contribute.'}), 400
+    try:
+        # Create a Flower client using the current global model and data
+        client = FlowerClient(model, X_train, y_train_enc, X_test, y_test)
+        # Connect to the federated server (adjust host/port if needed)
+        # The server should be running at localhost:8080 (or change to your server's address)
+        fl.client.start_client(server_address="localhost:8080", client=client.to_client())
+        return jsonify({"message": "Contribution completed successfully."})
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        return jsonify({'error': str(e)}), 500
+
+# Main entry point
 if __name__ == '__main__':
-    import time 
-    import pandas as pd 
-    from flask import render_template
     port = int(os.environ.get('PORT', 10000))
     print(f"Starting server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
-
-    
