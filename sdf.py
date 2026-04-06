@@ -384,6 +384,6 @@ def download_global_model():
 
 # ---------- Main entry point ----------
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
+    port = int(os.environ.get('PORT', 10001))
     print(f"Starting server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
