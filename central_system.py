@@ -1,3 +1,4 @@
+
 import os
 import pandas as pd
 import joblib
@@ -16,8 +17,6 @@ app = Flask(__name__)
 CORS(app)
 
 # ---------- Authentication ----------
-# In production, use a strong random string and store it in an environment variable.
-# For now, change this to your own secret key.
 API_KEY = "your-secret-key-123"   # MUST match the key used in sdf.py
 
 def require_api_key(f):
@@ -34,11 +33,7 @@ DATA_CSV = 'global_features.csv'
 MODEL_FILE = 'global_model.pkl'
 LE_FILE = 'global_label_encoder.pkl'
 
-# ---------- Routes ----------
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({"status": "alive", "samples": get_sample_count()})
-
+# ---------- Helper ----------
 def get_sample_count():
     if not os.path.exists(DATA_CSV):
         return 0
@@ -48,30 +43,35 @@ def get_sample_count():
     except:
         return 0
 
-@app.route('/upload_features', methods=['POST'])
+# ---------- Routes ----------
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "alive", "samples": get_sample_count()})
+
+@app.route('/upload_batch', methods=['POST'])
 @require_api_key
-def upload_features():
-    """Receive a feature vector + label from a client."""
+def upload_batch():
+    """Receive a batch of feature vectors + labels."""
     data = request.get_json()
-    features = data.get('features')
-    label = data.get('label')
-    if not features or not label:
-        return jsonify({"error": "Missing features or label"}), 400
+    if not isinstance(data, list):
+        return jsonify({"error": "Expected a list of samples"}), 400
+    if not data:
+        return jsonify({"status": "ok", "uploaded": 0})
 
-    n_features = len(features)
-    col_names = [f'f{i}' for i in range(n_features)] + ['label']
-    df_new = pd.DataFrame([features + [label]], columns=col_names)
+    n_features = len(data[0]['features'])
+    rows = []
+    for item in data:
+        rows.append(item['features'] + [item['label']])
 
-    # Append to CSV, create file with header if not exists
+    df_new = pd.DataFrame(rows, columns=[f'f{i}' for i in range(n_features)] + ['label'])
     file_exists = os.path.exists(DATA_CSV) and os.path.getsize(DATA_CSV) > 0
     df_new.to_csv(DATA_CSV, mode='a', header=not file_exists, index=False)
 
-    return jsonify({"status": "ok", "received": n_features, "label": label})
+    return jsonify({"status": "ok", "uploaded": len(data)})
 
 @app.route('/retrain_global', methods=['POST'])
 @require_api_key
 def retrain_global():
-    """Retrain the global ensemble on all collected features."""
     if not os.path.exists(DATA_CSV) or os.path.getsize(DATA_CSV) == 0:
         return jsonify({"error": "No data available"}), 400
 
@@ -82,7 +82,6 @@ def retrain_global():
     le = LabelEncoder()
     y_enc = le.fit_transform(y)
 
-    # Build the same ensemble as in dipps.py
     dt = DecisionTreeClassifier(max_depth=4, random_state=42)
     rf = RandomForestClassifier(max_depth=4, n_estimators=100, random_state=42)
     xgb = XGBClassifier(max_depth=3, n_estimators=50, random_state=42, n_jobs=-1)
@@ -113,12 +112,10 @@ def download_le():
     return send_file(LE_FILE, as_attachment=True)
 
 @app.route('/stats', methods=['GET'])
-@require_api_key   # optional, you can remove if you want public stats
+@require_api_key
 def stats():
     return jsonify({"samples": get_sample_count()})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    # For production, use a proper WSGI server (gunicorn) and enable HTTPS.
     app.run(host='0.0.0.0', port=port, debug=False)
-nh3
