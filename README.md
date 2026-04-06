@@ -13,7 +13,7 @@ The **NEGATIVE** class – the most clinically important – is the hardest to c
 
 ## Performance
 
-- **Cross‑subject (LOSO):** 38% ± 9% balanced accuracy – significantly above random (33.3%), demonstrating generalisation.
+- **Cross‑subject (LOSO):** 38% ± 9% balanced accuracy – slightly above random guess (33.3%), demonstrating generalisation.
 - **Within‑dataset (training subjects):** 66.3% balanced accuracy (90 subjects from two continents).
 - The model is **designed to improve** as more labelled data from diverse populations is collected.
 
