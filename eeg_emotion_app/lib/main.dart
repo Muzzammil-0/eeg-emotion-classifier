@@ -55,7 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
       allowedExtensions: ['edf'],
     );
     if (result == null) return;
-    setState(() => _isPredicting = true);
+    setState(() => _isPredicting = rue);
     try {
       var request = http.MultipartRequest(
         'POST',
