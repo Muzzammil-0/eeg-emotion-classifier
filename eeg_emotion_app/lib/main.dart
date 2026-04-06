@@ -63,6 +63,7 @@ class _MyHomePageState extends State<MyHomePage> {
           _predictionResult =
               'Emotion: ${json['emotion']} (${json['confidence']}%)';
         });
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Prediction: ${json['emotion']}')),
         );
@@ -70,6 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
         throw Exception(json['error'] ?? 'Prediction failed');
       }
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
@@ -85,6 +87,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
     if (result == null) return;
     final label = await showDialog<String>(
+      // ignore: use_build_context_synchronously
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Observed Emotion'),
@@ -117,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
         setState(() {
           _newDatasetVersion = json['new_version'];
         });
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
@@ -126,6 +130,7 @@ class _MyHomePageState extends State<MyHomePage> {
         throw Exception(json['error'] ?? 'Unknown error');
       }
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
@@ -156,6 +161,7 @@ class _MyHomePageState extends State<MyHomePage> {
         );
         var reloadJson = jsonDecode(reloadResponse.body);
         if (reloadResponse.statusCode == 200) {
+          // ignore: use_build_context_synchronously
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text(
@@ -171,6 +177,7 @@ class _MyHomePageState extends State<MyHomePage> {
         throw Exception(json['error'] ?? 'Retraining failed');
       }
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
@@ -187,10 +194,12 @@ class _MyHomePageState extends State<MyHomePage> {
         Uri.parse('http://localhost:10001/sync_to_central'),
       );
       var json = jsonDecode(response.body);
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(json['message'] ?? 'Sync completed')),
       );
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Sync error: $e'), backgroundColor: Colors.red),
       );
@@ -207,11 +216,13 @@ class _MyHomePageState extends State<MyHomePage> {
         Uri.parse('http://localhost:10001/download_global_model'),
       );
       var json = jsonDecode(response.body);
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(json['message'] ?? 'Global model updated')),
       );
       setState(() {}); // refresh UI if needed
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Update error: $e'), backgroundColor: Colors.red),
