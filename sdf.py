@@ -56,6 +56,18 @@ def get_latest_trained_version():
             return latest[1].replace('model_', '').replace('.pkl', '')
     return 'version_0'
 
+# ---------- Sync tracking ----------
+LAST_SYNC_FILE = 'last_sync_count.txt'
+
+def get_last_sync_count():
+    if os.path.exists(LAST_SYNC_FILE):
+        with open(LAST_SYNC_FILE, 'r') as f:
+            return int(f.read().strip())
+    return 0
+
+def set_last_sync_count(count):
+    with open(LAST_SYNC_FILE, 'w') as f:
+        f.write(str(count))
 
 # ---------- Load model and related artefacts ----------
 version = get_latest_trained_version()
@@ -166,8 +178,6 @@ def _run_inference(temp_path):
     emotion = le.inverse_transform([pred_idx])[0]
     classes = list(le.classes_)
     return emotion, avg_proba, classes
-
-
 
 # ---------- Routes ----------
 @app.route('/')
@@ -311,40 +321,47 @@ def reload_model():
         traceback.print_exc(file=sys.stdout)
         return jsonify({'error': str(e)}), 500
 
-# ---------- Centralized aggregation endpoints ----------
-@app.route('/get_local_features', methods=['GET'])
-def get_local_features():
-    global X_train, y_train
-    if X_train is None or y_train is None:
-        return jsonify({'error': 'No local training data'}), 400
-    return jsonify({
-        'features': X_train.tolist(),
-        'labels': y_train.tolist()
-    })
-
+# ---------- Centralized aggregation endpoints (incremental batch) ----------
 @app.route('/sync_to_central', methods=['POST'])
 def sync_to_central():
     global X_train, y_train
     if X_train is None or y_train is None:
         return jsonify({'error': 'No local training data'}), 400
 
-    features_list = X_train.tolist()
-    labels_list = y_train.tolist()
-    success_count = 0
-    for feats, label in zip(features_list, labels_list):
-        payload = {'features': feats, 'label': label}
+    last_count = get_last_sync_count()
+    total_count = len(X_train)
+    if last_count >= total_count:
+        return jsonify({'message': 'No new samples to sync'})
+
+    # New samples since last sync
+    new_features = X_train[last_count:].tolist()
+    new_labels = y_train[last_count:].tolist()
+    n_new = len(new_features)
+
+    # Batch size (adjust as needed)
+    batch_size = 1000
+    uploaded = 0
+    for i in range(0, n_new, batch_size):
+        batch_feats = new_features[i:i+batch_size]
+        batch_labels = new_labels[i:i+batch_size]
+        payload = [{'features': f, 'label': l} for f, l in zip(batch_feats, batch_labels)]
         try:
             resp = requests.post(
-                f'{CENTRAL_URL}/upload_features',
+                f'{CENTRAL_URL}/upload_batch',
                 json=payload,
                 headers={'X-API-Key': CENTRAL_API_KEY},
-                timeout=10
+                timeout=30
             )
             if resp.status_code == 200:
-                success_count += 1
+                uploaded += len(batch_feats)
+            else:
+                return jsonify({'error': f'Batch upload failed: {resp.text}'}), 500
         except Exception as e:
-            print(f"Upload error: {e}")
-    return jsonify({'message': f'Uploaded {success_count}/{len(features_list)} samples'})
+            return jsonify({'error': str(e)}), 500
+
+    # Update sync count
+    set_last_sync_count(total_count)
+    return jsonify({'message': f'Uploaded {uploaded} new samples (total {total_count})'})
 
 @app.route('/download_global_model', methods=['POST'])
 def download_global_model():
@@ -371,7 +388,7 @@ def download_global_model():
 
         model = new_model
         le = new_le
-        version = "global"   # you can keep the original version or a special marker
+        version = "global"
 
         os.remove('temp_global_model.pkl')
         os.remove('temp_global_le.pkl')
@@ -379,8 +396,6 @@ def download_global_model():
         return jsonify({'message': 'Global model loaded successfully', 'version': version})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
 
 # ---------- Main entry point ----------
 if __name__ == '__main__':
