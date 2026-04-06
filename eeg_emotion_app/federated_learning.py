@@ -1,19 +1,19 @@
 import flwr as fl
 from flwr.server.strategy import FedAvg
 
-def main():
-
+def server_fn(context):
     strategy = FedAvg(
-        fraction_fit=0.1,  # Sample 10% of clients for training
-        min_fit_clients=2,  # Minimum number of clients to be sampled for training
-        min_available_clients=2,  # Minimum number of clients that need to be connected to the server before training can start
+    fraction_fit = 1.0,
+    min_fit_clients = 2,
+    min_available_clients = 2,
     )
 
-    fl.server.start_server(
-        server_address= "0.0.0.0:8080",
-        config = fl.server.ServerConfig(num_rounds=3), #number of rounds of federated learning
-        strategy=strategy,
-    )
+    config = fl.server.ServerConfig(num_rounds=3)
+    return fl.server.Server(config=config, strategy=strategy)
 
 if __name__ == "__main__":
-    main()
+    fl.server.run_app(
+        server_fn= server_fn,
+        server_address = "0.0.0.0:8080",
+    )
+    
