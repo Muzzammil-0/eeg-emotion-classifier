@@ -215,123 +215,69 @@ License
 MIT
 
 
-import os
-import pandas as pd
-import joblib
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
-from sklearn.ensemble import VotingClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
-from sklearn.preprocessing import LabelEncoder
-import numpy as np
-from datetime import datetime
-from functools import wraps
+# ... (all imports and earlier code remain exactly the same) ...
 
-app = Flask(__name__)
-CORS(app)
+# ---------- Central server configuration ----------
+CENTRAL_URL = "http://localhost:5000"
+CENTRAL_API_KEY = "your-secret-key-123"
 
-# ---------- Authentication ----------
-API_KEY = "your-secret-key-123"   # MUST match the key used in sdf.py
+# ---------- Sync tracking ----------
+LAST_SYNC_FILE = 'last_sync_count.txt'
 
-def require_api_key(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        key = request.headers.get('X-API-Key')
-        if key != API_KEY:
-            return jsonify({"error": "Unauthorized"}), 401
-        return f(*args, **kwargs)
-    return decorated
+def get_last_sync_count():
+    if os.path.exists(LAST_SYNC_FILE):
+        with open(LAST_SYNC_FILE, 'r') as f:
+            return int(f.read().strip())
+    return 0
 
-# ---------- File paths ----------
-DATA_CSV = 'global_features.csv'
-MODEL_FILE = 'global_model.pkl'
-LE_FILE = 'global_label_encoder.pkl'
+def set_last_sync_count(count):
+    with open(LAST_SYNC_FILE, 'w') as f:
+        f.write(str(count))
 
-# ---------- Helper ----------
-def get_sample_count():
-    if not os.path.exists(DATA_CSV):
-        return 0
-    try:
-        df = pd.read_csv(DATA_CSV)
-        return len(df)
-    except:
-        return 0
+# ... (all other code up to the routes remains unchanged) ...
 
-# ---------- Routes ----------
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({"status": "alive", "samples": get_sample_count()})
+# ---------- Centralized aggregation endpoints ----------
+# (Remove the old /get_local_features – we don't need it for batch upload)
 
-@app.route('/upload_batch', methods=['POST'])
-@require_api_key
-def upload_batch():
-    """Receive a batch of feature vectors + labels."""
-    data = request.get_json()
-    if not isinstance(data, list):
-        return jsonify({"error": "Expected a list of samples"}), 400
-    if not data:
-        return jsonify({"status": "ok", "uploaded": 0})
+@app.route('/sync_to_central', methods=['POST'])
+def sync_to_central():
+    global X_train, y_train
+    if X_train is None or y_train is None:
+        return jsonify({'error': 'No local training data'}), 400
 
-    n_features = len(data[0]['features'])
-    rows = []
-    for item in data:
-        rows.append(item['features'] + [item['label']])
+    last_count = get_last_sync_count()
+    total_count = len(X_train)
+    if last_count >= total_count:
+        return jsonify({'message': 'No new samples to sync'})
 
-    df_new = pd.DataFrame(rows, columns=[f'f{i}' for i in range(n_features)] + ['label'])
-    file_exists = os.path.exists(DATA_CSV) and os.path.getsize(DATA_CSV) > 0
-    df_new.to_csv(DATA_CSV, mode='a', header=not file_exists, index=False)
+    # New samples since last sync
+    new_features = X_train[last_count:].tolist()
+    new_labels = y_train[last_count:].tolist()
+    n_new = len(new_features)
 
-    return jsonify({"status": "ok", "uploaded": len(data)})
+    # Batch size (adjust as needed)
+    batch_size = 1000
+    uploaded = 0
+    for i in range(0, n_new, batch_size):
+        batch_feats = new_features[i:i+batch_size]
+        batch_labels = new_labels[i:i+batch_size]
+        payload = [{'features': f, 'label': l} for f, l in zip(batch_feats, batch_labels)]
+        try:
+            resp = requests.post(
+                f'{CENTRAL_URL}/upload_batch',
+                json=payload,
+                headers={'X-API-Key': CENTRAL_API_KEY},
+                timeout=30
+            )
+            if resp.status_code == 200:
+                uploaded += len(batch_feats)
+            else:
+                return jsonify({'error': f'Batch upload failed: {resp.text}'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
-@app.route('/retrain_global', methods=['POST'])
-@require_api_key
-def retrain_global():
-    if not os.path.exists(DATA_CSV) or os.path.getsize(DATA_CSV) == 0:
-        return jsonify({"error": "No data available"}), 400
+    # Update sync count
+    set_last_sync_count(total_count)
+    return jsonify({'message': f'Uploaded {uploaded} new samples (total {total_count})'})
 
-    df = pd.read_csv(DATA_CSV)
-    X = df.iloc[:, :-1].values
-    y = df['label'].values
-
-    le = LabelEncoder()
-    y_enc = le.fit_transform(y)
-
-    dt = DecisionTreeClassifier(max_depth=4, random_state=42)
-    rf = RandomForestClassifier(max_depth=4, n_estimators=100, random_state=42)
-    xgb = XGBClassifier(max_depth=3, n_estimators=50, random_state=42, n_jobs=-1)
-    model = VotingClassifier(
-        estimators=[('dt', dt), ('rf', rf), ('xgb', xgb)],
-        voting='soft',
-        weights=[1, 2, 5]
-    )
-    model.fit(X, y_enc)
-
-    joblib.dump(model, MODEL_FILE)
-    joblib.dump(le, LE_FILE)
-
-    return jsonify({"message": f"Global model retrained on {len(df)} samples", "samples": len(df)})
-
-@app.route('/download_model', methods=['GET'])
-@require_api_key
-def download_model():
-    if not os.path.exists(MODEL_FILE):
-        return jsonify({"error": "No global model yet"}), 404
-    return send_file(MODEL_FILE, as_attachment=True)
-
-@app.route('/download_label_encoder', methods=['GET'])
-@require_api_key
-def download_le():
-    if not os.path.exists(LE_FILE):
-        return jsonify({"error": "No label encoder yet"}), 404
-    return send_file(LE_FILE, as_attachment=True)
-
-@app.route('/stats', methods=['GET'])
-@require_api_key
-def stats():
-    return jsonify({"samples": get_sample_count()})
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+# ... (the rest of the routes, including /download_global_model, remain exactly as before) ...
