@@ -6,7 +6,7 @@ A **device‑agnostic** EEG emotion classifier that works with raw EDF files fro
 Predicts **POSITIVE / NEUTRAL / NEGATIVE** using an ensemble of tree‑based models.  
 Includes a Flutter desktop app for clinicians and a central server that aggregates anonymised features from multiple clinics to continuously improve the global model.
 
-> **To our knowledge, the first open‑source pipeline that accepts a raw EDF file from any EEG device and returns an emotion prediction end‑to‑end – no manual preprocessing, no device‑specific setup.**
+> **One of the first pipeline with automated device-agnostic channel mapping for emotion classifier**
 
 ## Why This Matters
 
