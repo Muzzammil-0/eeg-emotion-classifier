@@ -16,7 +16,7 @@ import sys
 sys.path.append(r'C:\Users\PROJECTS\EEG_EMOTION_CLASSIFIER')
 from dipps import bins_to_waves
 
-DATA_PATH  = r'C:\Users\PROJECTS\EEG_EMOTION_CLASSIFIER\emotions_combined.csv'
+DATA_PATH  = r'C:\Users\PROJECTS\EEG_EMOTION_CLASSIFIER\emotions_27.csv'
 OUTPUT_DIR = r'C:\Users\PROJECTS\EEG_EMOTION_CLASSIFIER'
 
 

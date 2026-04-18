@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EEG Emotion Classifier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #718096;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .info-box {
+            background: #ebf4ff;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 30px 0;
+            border-left: 4px solid #4299e1;
+        }
+
+        .info-box h3 {
+            color: #2b6cb0;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .info-box p {
+            color: #2c5282;
+            margin: 5px 0;
+        }
+
+        .upload-area {
+            border: 3px dashed #cbd5e0;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            background: #f7fafc;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin: 30px 0 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #4c51bf;
+            background: #e6ecff;
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            color: #a0aec0;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            background: #667eea;
+            color: white;
+            padding: 14px 36px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: inline-block;
+            font-weight: 600;
+            transition: background 0.3s;
+            border: none;
+            font-size: 1.1rem;
+        }
+
+        .file-label:hover {
+            background: #5a67d8;
+        }
+
+        .file-name {
+            margin-top: 15px;
+            color: #4a5568;
+            font-size: 1rem;
+            font-weight: 500; 
+        }
+
+        .submit-btn {
+            background: #48bb78;
+            color: white;
+            padding: 16px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: #38a169;
+        }
+
+        .submit-btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px solid #fc8181;
+            text-align: center;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .feature-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .feature-card h3 {
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .callout-box {
+            background: #fefcbf;
+            border-radius: 16px;
+            padding: 25px;
+            margin: 40px 0 20px;
+            border-left: 4px solid #d69e2e;
+            text-align: center;
+        }
+
+        .callout-box h3 {
+            color: #975a16;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .callout-box p {
+            color: #744210;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .github-link {
+            display: inline-block;
+            background: #24292e;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+
+        .github-link:hover {
+            background: #1a1e22;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #48bb78;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .file-limit-note {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 8px 16px;
+            border-radius: 50px;
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 EEG Emotion Classifier</h1>
+        <p class="subtitle">Upload an EEG recording to detect emotional state with 89% accuracy</p>
+        
+        <div class="info-box">
+            <h3>🎯 Universal EEG Adapter</h3>
+            <p>✓ Works with any EEG device (Muse, Natus, EGI, BioSemi, g.tec, Neuroscan, Nihon Kohden, Brain Products)</p>
+            <p>✓ Supports raw .edf files directly from clinical machines</p>
+            <p>✓ 21 wave features across Delta, Theta, Alpha, Beta, Gamma bands</p>
+            <p class="file-limit-note">📁 Local Docker version: Maximum file size <strong>500 MB</strong></p>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <h3>📊 89.7% Accuracy</h3>
+                <p>Optimized XGBoost ensemble with [1,2,5] weights</p>
+            </div>
+        </div>
+
+        <div class="callout-box">
+            <h3>💖 Open for Improvement & Doctor Validation</h3>
+            <p>This model is trained on limited data (2 subjects). To make it truly generalizable across different people, we need more EEG data with known emotional states.</p>
+            <p>If you have EDF files from clinical settings or research studies, please share them! Your contribution will help:</p>
+            <p>✅ Train the model on more subjects<br>✅ Improve cross-subject validation<br>✅ Make emotion detection more accurate for everyone</p>
+            <p style="font-weight: 600; margin-top: 15px;">Anyone interested can send me EDF files via GitHub to help improve the model 💖</p>
+            <a href="https://github.com/Muzzammil-0/eeg-emotion-classifier" class="github-link">📤 Contribute on GitHub</a>
+        </div>
+        
+        {% if error %}
+        <div class="error">
+            ❌ {{ error }}
+        </div>
+        {% endif %}
+        
+        <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-area" id="dropArea">
+                <div class="upload-icon">📤</div>
+                <p style="margin-bottom: 15px; color: #4a5568;">Drag & drop your EDF file here</p>
+                <p style="margin-bottom: 5px; color: #a0aec0;">or</p>
+                <p style="margin-bottom: 20px; color: #f56565; font-size: 0.9rem;">(Local Docker: Max 500 MB)</p>
+                <label for="fileInput" class="file-label">Choose File</label>
+                <input type="file" id="fileInput" name="file" accept=".edf" class="file-input" required>
+                <div id="fileName" class="file-name"></div>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                🔍 Analyze Emotion
+            </button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <p style="color: #4a5568;">Processing EEG data... This may take a moment</p>
+            <p style="color: #718096; font-size: 0.9rem;">The file is being analyzed by our universal EEG adapter</p>
+        </div>
+        
+        <div class="footer">
+            <p>Built with ❤️ by Muzzammil-0 | <a href="https://github.com/Muzzammil-0/eeg-emotion-classifier" style="color: #667eea; text-decoration: none;">GitHub</a></p>
+            <p style="margin-top: 10px;">📡 API available at <code style="background: #edf2f7; padding: 2px 6px; border-radius: 4px;">/predict</code></p>
+            <p style="margin-top: 15px;">🙏 Help improve this model by sharing EDF files on GitHub</p>
+            <p style="margin-top: 10px; font-size: 0.8rem; color: #a0aec0;">⚠️ Local Docker version: 500MB file limit</p>
+        </div>
+    </div>
+
+    <script>
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const submitBtn = document.getElementById('submitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const loading = document.getElementById('loading');
+        
+        // Prevent defaults for drag events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        // Highlight drop area
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('dragover');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('dragover');
+            }, false);
+        });
+        
+        // Handle dropped files
+        dropArea.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            updateFileName();
+        });
+        
+        // Handle file selection
+        fileInput.addEventListener('change', updateFileName);
+        
+        function updateFileName() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                
+                // Always show filename and size
+                let displayText = `${file.name} (${fileSizeMB} MB)`;
+                
+                // Add warning if too large
+                if (file.size > 500 * 1024 * 1024) {
+                    displayText += '<br><span style="color: #f56565; font-size: 0.9rem;">⚠️ File exceeds 500MB limit and will be rejected</span>';
+                }
+                
+                fileName.innerHTML = displayText;
+            } else {
+                fileName.textContent = '';
+            }
+        }
+        
+        // Show loading on form submit
+        uploadForm.addEventListener('submit', (e) => {
+            if (fileInput.files.length === 0) {
+                e.preventDefault();
+                alert('Please select a file first');
+                return;
+            }
+            
+            // No file size check – Docker version accepts any size
+            // Warning only, not blocking
+            
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
+r
